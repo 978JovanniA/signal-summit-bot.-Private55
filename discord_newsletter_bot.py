@@ -89,9 +89,6 @@ def generate_newsletter() -> str:
         ],
     )
 
-    # Concatenate all text blocks from the final assistant turn (search results
-    # and intermediate tool calls are handled server-side by the API for the
-    # web_search tool, so response.content holds the final text blocks).
     text_parts = [block.text for block in response.content if block.type == "text"]
     newsletter = "\n".join(text_parts).strip()
 
@@ -109,7 +106,6 @@ def split_for_discord(text: str, limit: int = DISCORD_MAX_LEN) -> list[str]:
     chunks = []
     remaining = text
     while len(remaining) > limit:
-        # Prefer to break at the last blank line before the limit.
         split_at = remaining.rfind("\n\n", 0, limit)
         if split_at == -1:
             split_at = remaining.rfind("\n", 0, limit)
@@ -127,7 +123,15 @@ def post_to_discord(webhook_url: str, content: str) -> None:
     req = urllib.request.Request(
         webhook_url,
         data=payload,
-        headers={"Content-Type": "application/json"},
+        headers={
+            "Content-Type": "application/json",
+            # Discord/Cloudflare blocks Python's default urllib User-Agent
+            # (error 1010) — a normal-looking one gets through fine.
+            "User-Agent": (
+                "Mozilla/5.0 (compatible; SignalSummitBot/1.0; "
+                "+https://github.com)"
+            ),
+        },
         method="POST",
     )
     try:
